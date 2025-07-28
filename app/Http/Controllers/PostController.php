@@ -1,11 +1,10 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Post;
 use Illuminate\Http\Request;
-
+use Str;
 class PostController extends Controller
 {
     /**
@@ -13,9 +12,8 @@ class PostController extends Controller
      */
     public function index()
     {
-        $categories = Category::get();
         $posts = Post::select('id', 'title', 'image', 'description')->orderBy("created_at", "desc")->simplePaginate(5);
-        return view("dashboard", ["categories" => $categories, "posts" => $posts]);
+        return view("post.index", ["posts" => $posts]);
     }
 
     /**
@@ -23,7 +21,8 @@ class PostController extends Controller
      */
     public function create()
     {
-        //
+        $categories = Category::select('id', 'name')->get();
+        return view("post.create", ['categories' => $categories]);
     }
 
     /**
@@ -31,7 +30,24 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $data = $request->validate([
+            'title' => 'required',
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
+            'description' => 'required',
+            'category_id' => ['required', 'exists:categories,id']
+        ], [
+            'category_id.required' => 'The category field is required',
+            'published_at' => ['nullable', 'datetime']
+        ]);
+
+        $image = $data['image'];
+        unset($data['image']);
+        $data['user_id'] = auth()->id();
+        $data['slug'] = Str::slug($data['title']);
+        $imagePath = $image->store('posts', 'public');
+        $data['image'] = $imagePath;
+        Post::create($data);
+        return redirect()->route('dashboard');
     }
 
     /**
